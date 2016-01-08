@@ -13,6 +13,7 @@ setup(name='flask-restful-swagger',
       packages=['flask_restful_swagger'],
       package_data={
         'flask_restful_swagger': [
+          'resources/*.*',
           'static/*.*',
           'static/css/*.*',
           'static/images/*.*',
