@@ -19,10 +19,12 @@ from jinja2 import Template
 
 # Create a debug logger
 from resources.debug import setup_logging
+debug = True
 
-# Track Globals Here
-api_spec_static = None
-resource_listing_endpoint = None
+
+# Allow functions to identify themselves
+def myself():
+    return inspect.stack()[1][3]
 
 
 def docs(api, apiVersion='0.0', swaggerVersion='1.2',
@@ -39,7 +41,7 @@ def docs(api, apiVersion='0.0', swaggerVersion='1.2',
 
     def add_resource(resource, path, *args, **kvargs):
 
-         # Log Function Call
+        # Log Function Call
         log.tag(myself(), {
           'resource (class name)': resource.__name__,
           'path': path
@@ -47,8 +49,6 @@ def docs(api, apiVersion='0.0', swaggerVersion='1.2',
 
         register_once(api, api_add_resource, apiVersion, swaggerVersion, basePath,
                       resourcePath, produces, api_spec_url, description)
-
-
 
         resource = make_class(resource)
         endpoint = swagger_endpoint(api, resource, path)
@@ -77,6 +77,9 @@ def make_class(class_or_instance):
     :param class_or_instance: A class, or instance of a class.
     :return: The class name
     """
+    # Log Function Call
+    log.tag_full(myself(), locals())
+
     if inspect.isclass(class_or_instance):
         return class_or_instance
     return class_or_instance.__class__
@@ -125,10 +128,11 @@ def register_once(api, add_resource_func, apiVersion, swaggerVersion, basePath,
             api_spec_static + '<string:dir1>/<string:dir2>',
             api_spec_static + '<string:dir1>')
 
-        log.debug("FUNCTION CALL: %s()" % myself())
-        log.debug("    Registered blueprint: %s" % api.blueprint.name )
+        # Log Registered Blueprint
+        log.debug("[ %s() ] FUNCTION CALL" % myself())
+        log.debug("[ %s() ]    Registered blueprint: %s" % (myself(), api.blueprint.name))
 
-    elif not 'app' in registry:
+    elif 'app' not in registry:
         registry['app'] = {
             'apiVersion': apiVersion,
             'swaggerVersion': swaggerVersion,
@@ -160,9 +164,9 @@ def register_once(api, add_resource_func, apiVersion, swaggerVersion, basePath,
             api_spec_static + '<string:dir1>',
             endpoint='app/staticfiles')
 
-        log.debug("FUNCTION CALL: %s()" % myself())
-        log.debug("    Registered app!")
-
+        # Log Registered Blueprint
+        log.debug("[ %s() ] FUNCTION CALL" % myself())
+        log.debug("[ %s() ]    Registered app!" % myself())
 
 def render_endpoint(endpoint):
     # Logging Statement
@@ -203,10 +207,10 @@ def _get_current_registry(api=None):
     reg = registry.setdefault(app_name, {})
     reg.update(overrides)
 
-    reg['basePath'] = reg['basePath'] + reg.get('x-api-prefix', '')
+    reg['basePath'] = reg['basePath'] + (reg.get('x-api-prefix', '') or '')
 
     # Log the entire Registry to show changes as each item is registered
-    log.debug("  CURRENT REGISTRY:")
+    log.debug("  CURRENT REGISTRY:  %s" % app_name)
     for key, value in reg.iteritems():
         if key == 'models':
             log.debug("    models:")
@@ -224,6 +228,10 @@ def _get_current_registry(api=None):
 
 
 def render_page(page, info):
+
+    # Logging Statement
+    log.tag(myself(), locals())
+
     req_registry = _get_current_registry()
     url = req_registry['basePath']
     if url.endswith('/'):
@@ -250,6 +258,10 @@ def render_page(page, info):
 class StaticFiles(Resource):
 
     def get(self, dir1=None, dir2=None, dir3=None):
+
+        # Logging Statement
+        log.tag('StaticFiles.'+myself(), locals())
+
         req_registry = _get_current_registry()
 
         if dir1 is None:
@@ -284,6 +296,10 @@ class StaticFiles(Resource):
 class ResourceLister(Resource):
 
     def get(self):
+
+        # Logging Statement
+        log.tag('ResourceLister.'+myself(), locals())
+
         req_registry = _get_current_registry()
         return {
             "apiVersion": req_registry['apiVersion'],
@@ -299,6 +315,10 @@ class ResourceLister(Resource):
 
 
 def swagger_endpoint(api, resource, path):
+
+    # Logging Statement
+    log.tag('swagger_endpoint.'+myself(), locals())
+
     endpoint = SwaggerEndpoint(resource, path)
     req_registry = _get_current_registry(api=api)
     req_registry.setdefault('apis', []).append(endpoint.__dict__)
@@ -306,6 +326,10 @@ def swagger_endpoint(api, resource, path):
     class SwaggerResource(Resource):
 
         def get(self):
+
+            # Logging Statement
+            log.tag('SwaggerResource.'+myself(), locals())
+
             if request.path.endswith('.help.json'):
                 return endpoint.__dict__
             if request.path.endswith('.help.html'):
@@ -314,10 +338,19 @@ def swagger_endpoint(api, resource, path):
 
 
 def _sanitize_doc(comment):
+    # Logging Statement
+    log.tag(myself(), {
+        'comment': comment[0:10].replace('\n','')
+    })
+
     return comment.replace('\n', '<br/>') if comment else comment
 
 
 def _parse_doc(obj):
+
+    # Log Registered Blueprint
+    log.tag(myself(), {'obj': obj.__name__})
+
     first_line, other_lines = None, None
 
     full_doc = inspect.getdoc(obj)
@@ -340,8 +373,15 @@ class SwaggerEndpoint(object):
         self.description, self.notes = _parse_doc(resource)
         self.operations = self.extract_operations(resource, path_arguments)
 
+        # Log Class Instantiation
+        log.tag('SwaggerEndpoint.' + myself(), locals())
+
     @staticmethod
     def extract_operations(resource, path_arguments=[]):
+
+        # Log Method Call
+        log.tag('SwaggerEndpoint.' + myself(), locals())
+
         operations = []
         for method in [m.lower() for m in resource.methods]:
             method_impl = resource.__dict__.get(method, None)
@@ -350,11 +390,7 @@ class SwaggerEndpoint(object):
                     for item_key in cls.__dict__.keys():
                         if item_key == method:
                             method_impl = cls.__dict__[item_key]
-            op = {
-                'method': method,
-                'parameters': path_arguments,
-                'nickname': 'nickname'
-            }
+            op = dict(method=method, parameters=path_arguments, nickname='nickname')
             op['summary'], op['notes'] = _parse_doc(method_impl)
 
             if '__swagger_attr' in method_impl.__dict__:
@@ -602,8 +638,7 @@ def extract_path_arguments(path):
 
 # Executing Statements Collected
 log = setup_logging()
-log.debugmode = True
-myself = lambda: inspect.stack()[1][3]
+log.debugmode = debug
 resource_listing_endpoint = None
 rootPath = os.path.dirname(__file__)
 templates = {}
