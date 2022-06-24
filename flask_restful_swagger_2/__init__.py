@@ -272,8 +272,6 @@ class _RequestParserExtractorImpl(_BaseExtractorImpl):
             return type_.swagger_type
         elif callable(type_) and type_.__name__ == 'boolean':  # flask-restful boolean
             return 'boolean'
-        elif type_ in [date, datetime]:
-            return 'string'
         elif issubclass(type_, basestring):
             return 'string'
         elif type_ == float:
@@ -288,11 +286,7 @@ class _RequestParserExtractorImpl(_BaseExtractorImpl):
             return 'array'
         elif type_ == dict:
             return 'object'
-        try:
-            if type_ == long:
-                return 'long'
-        except NameError:
-            pass
+
         raise TypeError('unexpected type: {0}'.format(type_))
 
     @classmethod
@@ -315,9 +309,9 @@ class _RequestParserExtractorImpl(_BaseExtractorImpl):
             cls.__update_reqparser_arg_as_array(arg, param)
         else:
             param['type'] = cls._get_swagger_arg_type(arg.type)
-        if arg.type == date:
+        if arg.format == date:
             param['format'] = 'date'
-        if arg.type == datetime:
+        if arg.format == datetime:
             param['format'] = 'date-time'
         return param
 
