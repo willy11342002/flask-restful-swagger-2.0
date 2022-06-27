@@ -275,7 +275,7 @@ class _RequestParserExtractorImpl(_BaseExtractorImpl):
         elif issubclass(type_, basestring):
             return 'string'
         elif type_ == float:
-            return 'float'
+            return 'number'
         elif type_ == int:
             return 'integer'
         elif type_ == bool:
@@ -309,6 +309,8 @@ class _RequestParserExtractorImpl(_BaseExtractorImpl):
             cls.__update_reqparser_arg_as_array(arg, param)
         else:
             param['type'] = cls._get_swagger_arg_type(arg.type)
+        if arg.type == float:
+            param['format'] = 'double'
         if hasattr(arg, 'pattern') and arg.pattern:
             param['pattern'] = arg.pattern
         if hasattr(arg, 'format') and arg.format == date:
