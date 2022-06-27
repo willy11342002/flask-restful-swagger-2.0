@@ -309,6 +309,8 @@ class _RequestParserExtractorImpl(_BaseExtractorImpl):
             cls.__update_reqparser_arg_as_array(arg, param)
         else:
             param['type'] = cls._get_swagger_arg_type(arg.type)
+        if arg.pattern:
+            param['pattern'] = arg.pattern
         if arg.format == date:
             param['format'] = 'date'
         if arg.format == datetime:
